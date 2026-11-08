@@ -63,6 +63,11 @@ const CHANNELS = [
   { name: "TRT Çocuk",   url: "https://tv-trtcocuk.medya.trt.com.tr/master.m3u8" },
   { name: "TRT Belgesel",url: "https://tv-trtbelgesel.medya.trt.com.tr/master.m3u8" },
   { name: "TRT World",   url: "https://tv-trtworld.medya.trt.com.tr/master.m3u8" },
+  /* Chaînes privées : adresses NON vérifiées (certaines bloquent la lecture hors de leur site).
+     Si ça ne démarre pas, le bouton « site officiel » s'affiche ; remplace alors l'url par la bonne. */
+  { name: "ATV",         url: "https://trkvz-live.ercdn.net/atvhd/atvhd.m3u8",       site: "https://www.atv.com.tr/canli-yayin" },
+  { name: "Show TV",     url: "https://ciner.daioncdn.net/showtv/showtv.m3u8",       site: "https://www.showtv.com.tr/canli-yayin" },
+  { name: "NOW",         url: "https://nowtv-live.ercdn.net/nowtv/master.m3u8",      site: "https://www.nowtv.com.tr/canli-yayin" },
 ];
 
 const $ = id => document.getElementById(id);
@@ -93,8 +98,18 @@ function play(i){
   store('last', cur); render(); showBar(c.name);
   msg.textContent = 'Chargement…';
   if (hls) { hls.destroy(); hls = null; }
-  const ok = () => msg.textContent = '';
-  const fail = () => msg.textContent = '⚠️ Impossible de lire « ' + c.name + ' ». Flux indisponible ou adresse changée.';
+  msg.style.pointerEvents = 'none';
+  const ok = () => { msg.textContent = ''; msg.style.pointerEvents = 'none'; };
+  const fail = () => {
+    msg.textContent = '⚠️ Impossible de lire « ' + c.name + ' ». Flux indisponible ou adresse changée.';
+    if (c.site) {
+      const a = document.createElement('a');
+      a.href = c.site; a.target = '_blank'; a.rel = 'noopener';
+      a.textContent = 'Ouvrir le site officiel de ' + c.name;
+      a.style.cssText = 'display:block;margin-top:16px;color:#e63b7a;font-size:1.2rem';
+      msg.appendChild(a); msg.style.pointerEvents = 'auto';
+    }
+  };
   v.onplaying = ok;
   if (window.Hls && Hls.isSupported()) {
     hls = new Hls({ lowLatencyMode: false });
