@@ -10,6 +10,7 @@
   html, body { margin:0; height:100%; background:#000; color:var(--txt); overflow:hidden; cursor:none;
     font-family:system-ui,"Segoe UI",Arial,sans-serif; }
   body.mouse { cursor:default; }
+  #frame { position:fixed; inset:0; width:100%; height:100%; border:0; background:#000; display:none; pointer-events:none; }
   video { position:fixed; inset:0; width:100%; height:100%; background:#000; object-fit:contain; }
 
   /* Liste des chaînes (touche OK) */
@@ -56,6 +57,7 @@
 </style>
 </head>
 <body>
+<iframe id="frame" allow="autoplay; fullscreen; encrypted-media" tabindex="-1" title="Lecteur officiel"></iframe>
 <video id="v" autoplay playsinline></video>
 <div id="spin"></div>
 <div id="msg"></div>
@@ -75,7 +77,8 @@
 /* ---------------------------------------------------------------
    CHAÎNES — à modifier librement.
    url  : flux direct (.m3u8) à lire dans l'appli.
-   site : chaîne sans flux libre — OK ouvre son site officiel.
+   frame: page de direct officielle affichée dans l'appli (lecteur de la chaîne).
+   site : chaîne qui interdit l'intégration — OK ouvre son site officiel.
 ---------------------------------------------------------------- */
 const CHANNELS = [
   { name: "TRT 1",        url: "https://tv-trt1.medya.trt.com.tr/master.m3u8" },
@@ -84,14 +87,14 @@ const CHANNELS = [
   { name: "TRT Çocuk",    url: "https://tv-trtcocuk.medya.trt.com.tr/master.m3u8" },
   { name: "TRT Belgesel", url: "https://tv-trtbelgesel.medya.trt.com.tr/master.m3u8" },
   { name: "TRT World",    url: "https://tv-trtworld.medya.trt.com.tr/master.m3u8" },
-  { name: "ATV",          site: "https://www.atv.com.tr/canli-yayin" },
+  { name: "ATV",          frame: "https://www.atv.com.tr/canli-yayin" },
   { name: "Show TV",      site: "https://www.showtv.com.tr/canli-yayin" },
-  { name: "NOW",          site: "https://www.nowtv.com.tr/canli-yayin" },
+  { name: "NOW",          frame: "https://www.nowtv.com.tr/canli-yayin" },
 ];
 
 const list = window.__CHANNELS__ || CHANNELS;      // __CHANNELS__ : réservé aux tests
 const $ = id => document.getElementById(id);
-const v = $('v'), panel = $('panel'), rows = $('rows'), msg = $('msg'), banner = $('banner'), vol = $('vol'), digits = $('digits'), spin = $('spin');
+const frameEl = $('frame'), v = $('v'), panel = $('panel'), rows = $('rows'), msg = $('msg'), banner = $('banner'), vol = $('vol'), digits = $('digits'), spin = $('spin');
 function store(k, val){ try { if (val === undefined) return JSON.parse(localStorage.getItem(k)); localStorage.setItem(k, JSON.stringify(val)); } catch(e){ return null; } }
 
 let cur = -1, prev = -1, sel = 0, hls = null, retry = 0, retryTimer = null, bannerTimer, listTimer, volTimer, digTimer, buf = '';
@@ -103,7 +106,7 @@ list.forEach((c, i) => {
   r.className = 'row';
   r.innerHTML = '<span class="n">' + (i + 1) + '</span><span class="t"></span><span class="tag"></span><span class="live"></span>';
   r.querySelector('.t').textContent = c.name;
-  r.querySelector('.tag').textContent = c.url ? '' : 'site officiel';
+  r.querySelector('.tag').textContent = c.url ? '' : c.frame ? 'lecteur officiel' : 'site officiel';
   r.onclick = () => { sel = i; paintList(); choose(); };
   r.onmousemove = () => { if (sel !== i) { sel = i; paintList(); } };
   rows.appendChild(r);
@@ -139,6 +142,7 @@ function stop(){
   clearTimeout(retryTimer);
   if (hls) { hls.destroy(); hls = null; }
   v.removeAttribute('src'); v.load();
+  frameEl.src = 'about:blank'; frameEl.style.display = 'none';
 }
 function play(i, silent){
   i = (i + list.length) % list.length;
@@ -146,6 +150,12 @@ function play(i, silent){
   cur = i; retry = 0; store('last', cur);
   const c = list[cur];
   paintList(); stop();
+  if (c.frame) {                                  // lecteur officiel de la chaîne, intégré
+    spin.style.display = 'none'; setMsg('');
+    frameEl.style.display = 'block'; frameEl.src = c.frame;
+    showBanner('Lecteur officiel de la chaîne');
+    return;
+  }
   if (!c.url) {                                   // chaîne sans flux libre : écran d'accueil du site
     spin.style.display = 'none';
     setMsg('<div class="big">' + esc(c.name) + '</div><div>Cette chaîne ne diffuse pas de flux libre.</div>' +
